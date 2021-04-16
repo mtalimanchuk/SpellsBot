@@ -63,9 +63,6 @@ class SpellSearch:
             self.df.loc[self.df["spell_id"] == spell_id, ["name", "Круг"]].iloc[0]
         )
 
-    def iter_tables(self, spell_id: str) -> Generator:
-        pass
-
 
 class Responder:
     """
