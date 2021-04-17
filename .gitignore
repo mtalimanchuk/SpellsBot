@@ -191,3 +191,4 @@ nodeLanguageServer.*/**
 datatools
 data
 src
+*.out
