@@ -4,7 +4,6 @@ from argparse import ArgumentParser
 import json
 import logging
 from pathlib import Path
-from typing import Generator
 from uuid import uuid4
 
 from environs import Env
@@ -42,8 +41,20 @@ UTILITIES
 
 
 class SpellSearch:
+    CORE_CLASSES = [
+        "Адепт",
+        "Бард",
+        "Волшебник",
+        "Друид",
+        "Жрец",
+        "Паладин",
+        "Следопыт",
+        "Чародей",
+    ]
+
     def __init__(self, spells_csv) -> None:
         self.df = self._load_df(spells_csv)
+        self.class_max_levels = self._find_max_levels(*self.CORE_CLASSES)
 
     @staticmethod
     def _load_df(csv_path: str) -> pd.DataFrame:
@@ -52,11 +63,44 @@ class SpellSearch:
 
         return df
 
-    def __call__(self, query: str) -> Generator:
+    def _find_max_levels(self, *classes):
+        levels = {}
+        for c in classes:
+            levels[c] = (
+                self.df["Круг"]
+                .str.extract(rf"{c} (\d)", expand=False)
+                .dropna()
+                .astype(int)
+                .max()
+            )
+
+        return levels
+
+    def __call__(self, query: str):
         results_df = self.df[self.df["name"].str.lower().str.contains(query.lower())]
 
         for idx, row in results_df.iterrows():
             yield dict(row)
+
+    def iter_levels(self, player_class: str):
+        levels = (
+            self.df["Круг"]
+            .str.extract(rf"{player_class} (\d)", expand=False)
+            .dropna()
+            .astype(int)
+            .max()
+        )
+        for lvl in range(levels + 1):
+            yield str(lvl)
+
+    def by_level(self, class_and_level: str):
+        results_df = self.df.loc[
+            self.df["Круг"].str.contains(class_and_level),
+            ["name", "sup", "short_desc", "school"],
+        ]
+
+        for school, row in results_df.groupby("school"):
+            yield school, row.to_dict("records")
 
     def get_table_caption(self, spell_id: str) -> str:
         return dict(
@@ -103,10 +147,20 @@ class Responder:
 
         return url
 
+    @staticmethod
+    def decode_callback(data: str):
+        cmd, payload = data.split(":", maxsplit=1)
+        return cmd, payload
+
+    @staticmethod
+    def encode_callback(cmd: str, payload: str):
+        return f"{cmd}:{payload}"
+
     def greet(self):
         text = (
-            "Начните вводить *@SpellsBot название заклинания* в любом чате "
-            "и выберите нужный результат. Этот результат отправится в текущий чат."
+            "Начните вводить:\n\n<code>@SpellsBot название заклинания</code>\n\n"
+            "в любом чате и выберите нужный результат. Этот результат отправится в текущий чат.\n\n"
+            "Для поиска по классам и кругам используйте /menu"
         )
         kb_markup = InlineKeyboardMarkup.from_button(
             InlineKeyboardButton(
@@ -114,7 +168,7 @@ class Responder:
             )
         )
 
-        return dict(text=text, reply_markup=kb_markup, parse_mode=ParseMode.MARKDOWN)
+        return dict(text=text, reply_markup=kb_markup, parse_mode=ParseMode.HTML)
 
     def help(self):
         text = (
@@ -132,7 +186,7 @@ class Responder:
             if spell["sup"]:
                 title += f" ({spell['sup']})"
 
-            description = f"{spell['short_desc']}"
+            description = f"{spell['Круг']}\n{spell['short_desc']}"
 
             text_parts = [f"*{spell['title'].upper()}*", f"{spell['school']}\n"]
             for key in [
@@ -165,7 +219,7 @@ class Responder:
                 buttons.append(
                     InlineKeyboardButton(
                         f"📜 Показать таблицы ({n_tables})",
-                        callback_data=spell["spell_id"],
+                        callback_data=self.encode_callback("TABLE", spell["spell_id"]),
                     )
                 )
             except json.decoder.JSONDecodeError:
@@ -221,6 +275,76 @@ class Responder:
 
         return dict(reply_markup=InlineKeyboardMarkup.from_column(buttons))
 
+    def menu(self):
+        text = "📖 <b>МЕНЮ</b> 🔮\n\nВыберите класс"
+        buttons = [
+            InlineKeyboardButton(
+                class_name, callback_data=self.encode_callback("CLASS", class_name)
+            )
+            for class_name in SpellSearch.CORE_CLASSES
+        ]
+        button_rows = [buttons[i : i + 2] for i in range(0, len(buttons) + 1, 2)]
+
+        return dict(
+            text=text,
+            reply_markup=InlineKeyboardMarkup(button_rows),
+            parse_mode=ParseMode.HTML,
+        )
+
+    def menu_class(self, class_name: str):
+        text = f"<b>{class_name}</b>\n\nВыберите круг"
+        buttons = [
+            InlineKeyboardButton(
+                lvl, callback_data=self.encode_callback("LEVEL", f"{class_name} {lvl}")
+            )
+            for lvl in self.spell_search.iter_levels(class_name)
+        ]
+
+        button_rows = [buttons[i : i + 5] for i in range(0, len(buttons) + 1, 5)]
+        button_rows.append(
+            [InlineKeyboardButton("🔮 Назад в меню", callback_data="HOME")]
+        )
+
+        return dict(
+            text=text,
+            reply_markup=InlineKeyboardMarkup(button_rows),
+            parse_mode=ParseMode.HTML,
+        )
+
+    def menu_level(self, class_and_level: str):
+        text_parts = [f"<b>{class_and_level} круг</b>"]
+
+        for school, spells in self.spell_search.by_level(class_and_level):
+            text_parts.append(f"\n<b>{school}</b>")
+            for s in spells:
+                text_parts.append(
+                    f"<u>{s['name']}</u> <code>{s['sup']}</code>: <i>{s['short_desc']}</i>"
+                )
+
+        text = "\n".join(text_parts)
+
+        class_name, level = class_and_level.split(" ", maxsplit=1)
+        buttons = []
+        for lvl in self.spell_search.iter_levels(class_name):
+            b_text = lvl
+            b_callback_data = self.encode_callback("LEVEL", f"{class_name} {lvl}")
+            if lvl == level:
+                b_text = "🔘"
+                b_callback_data = "PASS"
+            b = InlineKeyboardButton(b_text, callback_data=b_callback_data)
+            buttons.append(b)
+
+        button_rows = [buttons[i : i + 5] for i in range(0, len(buttons) + 1, 5)]
+        button_rows.append(
+            [InlineKeyboardButton("🔮 Назад в меню", callback_data="HOME")]
+        )
+
+        return dict(
+            text=text,
+            parse_mode=ParseMode.HTML,
+            reply_markup=InlineKeyboardMarkup(button_rows),
+        )
+
 
 """
 BOT HANDLERS
@@ -257,9 +381,14 @@ def inline_query(update: Update, context: CallbackContext):
     update.inline_query.answer(**responder.search(query))
 
 
+def menu(update: Update, context: CallbackContext):
+    """Send main menu message"""
+    update.message.reply_text(**responder.menu())
+
+
 def tables_callback(update: Update, context: CallbackContext):
     user_id = update.effective_user.id
-    spell_id = update.callback_query.data
+    cmd, spell_id = Responder.decode_callback(update.callback_query.data)
 
     try:
         context.bot.send_media_group(**responder.send_tables(user_id, spell_id))
@@ -275,6 +404,27 @@ def tables_callback(update: Update, context: CallbackContext):
         update.callback_query.edit_message_reply_markup(
             **responder.redirect_button(spell_id)
         )
+
+
+def home_callback(update: Update, context: CallbackContext):
+    update.effective_message.edit_text(**responder.menu())
+    update.callback_query.answer("")
+
+
+def class_callback(update: Update, context: CallbackContext):
+    cmd, class_name = Responder.decode_callback(update.callback_query.data)
+    update.effective_message.edit_text(**responder.menu_class(class_name))
+    update.callback_query.answer("")
+
+
+def level_callback(update: Update, context: CallbackContext):
+    cmd, class_and_level = Responder.decode_callback(update.callback_query.data)
+    update.effective_message.edit_text(**responder.menu_level(class_and_level))
+    update.callback_query.answer("")
+
+
+def pass_callback(update: Update, context: CallbackContext):
+    update.callback_query.answer("")
 
 
 def error(update: Update, context: CallbackContext):
@@ -298,13 +448,19 @@ if __name__ == "__main__":
     updater = Updater(bot_token)
     responder = Responder(spells_csv, images_root_dir, updater.bot.link, spell_url_root)
 
-    dp = updater.dispatcher
+    h = updater.dispatcher.add_handler
+    eh = updater.dispatcher.add_error_handler
 
-    dp.add_handler(CommandHandler("start", start))
-    dp.add_handler(CommandHandler("help", help))
-    dp.add_handler(InlineQueryHandler(inline_query))
-    dp.add_handler(CallbackQueryHandler(tables_callback))
-    dp.add_error_handler(error)
+    h(CommandHandler("start", start))
+    h(CommandHandler("help", help))
+    h(CommandHandler("menu", menu))
+    h(InlineQueryHandler(inline_query))
+    h(CallbackQueryHandler(tables_callback, pattern=r"TABLE:.*"))
+    h(CallbackQueryHandler(home_callback, pattern=r"^HOME$"))
+    h(CallbackQueryHandler(class_callback, pattern=r"CLASS:.*"))
+    h(CallbackQueryHandler(level_callback, pattern=r"LEVEL:.*"))
+    h(CallbackQueryHandler(pass_callback, pattern=r"^PASS$"))
+    eh(error)
 
     updater.start_polling()
     logger.info("BOT DEPLOYED. Ctrl+C to terminate")
