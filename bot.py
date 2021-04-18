@@ -88,9 +88,8 @@ class SpellSearch:
             .str.extract(rf"{player_class} (\d)", expand=False)
             .dropna()
             .astype(int)
-            .max()
         )
-        for lvl in range(levels + 1):
+        for lvl in set(levels):
             yield str(lvl)
 
     def by_level(self, class_and_level: str):
