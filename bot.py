@@ -146,13 +146,18 @@ class Responder:
         data_dir: str,
         bot_url_root: str,
         spell_url_root: str,
+        image_storage_url_root: str,
     ) -> None:
         self.spell_search = SpellSearch(spells_csv, classes_csv, data_dir)
         self.bot_url_root = bot_url_root.rstrip("/")
         self.spell_url_root = spell_url_root.rstrip("/")
+        self.image_storage_url_root = image_storage_url_root.rstrip("/")
 
     def _spell_url(self, spell_id: str):
         return f"{self.spell_url_root}/{spell_id}"
+
+    def _school_icon_url(self, school: str):
+        return f"{self.image_storage_url_root}/schoolicons/{school}.jpg"
 
     def _bot_url(self, payload: str = None):
         url = f"{self.bot_url_root}"
@@ -247,6 +252,7 @@ class Responder:
                     text, parse_mode=ParseMode.MARKDOWN
                 ),
                 reply_markup=InlineKeyboardMarkup.from_column(buttons),
+                thumb_url=self._school_icon_url(spell["school_en"]),
             )
             articles.append(a)
 
@@ -507,10 +513,16 @@ if __name__ == "__main__":
     classes_csv = env.path("CLASSES_CSV")
     data_root_dir = env.path("DATA_ROOT_DIR")
     spell_url_root = env.str("SPELL_URL_ROOT")
+    image_storage_url_root = env.str("IMAGE_STORAGE_URL_ROOT")
 
     updater = Updater(bot_token)
     responder = Responder(
-        spells_csv, classes_csv, data_root_dir, updater.bot.link, spell_url_root
+        spells_csv,
+        classes_csv,
+        data_root_dir,
+        updater.bot.link,
+        spell_url_root,
+        image_storage_url_root,
     )
 
     h = updater.dispatcher.add_handler
