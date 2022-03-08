@@ -192,3 +192,4 @@ datatools
 data
 src
 *.out
+*.db
