@@ -32,6 +32,10 @@ class SpellSearch:
         self._check_db_readiness()
 
     def _check_db_readiness(self):
+        """Check and update short spell info, classes and schools registry if needed
+
+        :return:
+        """
         if not self.db.has_spell_list():
             logger.info(f"{self._db_name} is not prepared, updating spell list...")
             self.update_sources()
@@ -102,10 +106,3 @@ class SpellSearch:
         )
         n_pages_total = math.ceil(len(all_spells) / n_per_page)
         return n_pages_total, all_spells[n_per_page * page : n_per_page * (page + 1)]
-        # results_df = self.spells_df.loc[
-        #     self.spells_df["Круг"].str.contains(class_and_level),
-        #     ["name", "sup", "short_desc", "school"],
-        # ]
-        #
-        # for school, row in results_df.groupby("school"):
-        #     yield school, row.to_dict("records")

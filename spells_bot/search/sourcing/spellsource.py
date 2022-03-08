@@ -86,6 +86,11 @@ class SourceUpdater:
 
     @staticmethod
     def _iter_class_extra_info(raw_data):
+        """Yield class name and extracted class info from one of the class lists
+
+        :param raw_data:
+        :return:
+        """
         for p in raw_data.find("p.indent"):
             try:
                 header = p.find("span.textHeader")[0]
@@ -117,6 +122,13 @@ class SourceUpdater:
         raw_basic_class_extra_data,
         raw_prestige_class_extra_data,
     ) -> List[ClassInfo]:
+        """Serialize class info from class data taken from spell list and class lists
+
+        :param raw_classes_data: data taken from spell list
+        :param raw_basic_class_extra_data: data taken from class list
+        :param raw_prestige_class_extra_data: data taken from prestige class list
+        :return:
+        """
         classes = []
 
         extra_basic_class_data = list(
@@ -142,6 +154,11 @@ class SourceUpdater:
         return classes
 
     def _extract_schools_from_js(self, raw_schools_data: str) -> List[SchoolInfo]:
+        """Serialize school info
+
+        :param raw_schools_data: raw school data
+        :return:
+        """
         schools = []
 
         for school_info in self._extract_data_from_js(raw_schools_data, "schools"):
@@ -153,6 +170,13 @@ class SourceUpdater:
     def _extract_spells_from_js(
         self, raw_spell_data: str, classes: List[ClassInfo], schools: List[SchoolInfo]
     ) -> List[ShortSpellInfo]:
+        """Serialize short spell info with mapped classes and schools
+
+        :param raw_spell_data: raw spell data
+        :param classes: list of serialized ClassInfo
+        :param schools: list of serialized Schools
+        :return:
+        """
         spells = []
 
         id2class = {c.id: c for c in classes}
@@ -169,11 +193,9 @@ class SourceUpdater:
 
             spell["ClassSpell"] = class_restrictions
             spell["SchoolIds"] = [id2school[idx] for idx in spell["SchoolIds"]]
-            # try:
             spell["ShortDescription"] = re.sub(
                 "<a href.*?>|</a>", "", spell["ShortDescription"]
             )
-            # except ParserError
 
             spell_kwargs = _rename_keys(spell, SPELLS_KEY_MAP)
             spells.append(ShortSpellInfo(**spell_kwargs))
@@ -194,6 +216,10 @@ class SourceUpdater:
         return spells_raw, classes_raw, schools_raw
 
     def _collect_extra_class_data(self):
+        """Scrape class info from class and class/prestige lists
+
+        :return:
+        """
         with HTMLSession() as sess:
             basic_classes_response = sess.get(self._settings.class_list_url)
             prestige_classes_response = sess.get(self._settings.prestige_class_list_url)

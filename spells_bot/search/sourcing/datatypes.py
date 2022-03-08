@@ -55,6 +55,9 @@ class SchoolInfo(OrmSerializableBaseModel):
 
 
 class BasicShortSpellInfo(OrmSerializableBaseModel):
+    """Part of ShortSpellInfo which can be serialized from orm and to orm
+
+    """
     alias: str
     short_description_components: str
     book_abbreviation: str
@@ -65,8 +68,15 @@ class BasicShortSpellInfo(OrmSerializableBaseModel):
 
 
 class ShortSpellInfo(BasicShortSpellInfo):
+    """Part of ShortSpellInfo which cannot be serialized from orm but can be serialized to orm
+
+    """
     schools: List[SchoolInfo]
     classes: List[ClassInfoSpellRestriction]
+
+    @classmethod
+    def from_orm(cls, *args, **kwargs):
+        raise NotImplementedError(f"{cls.__name__} should be instantiated with __init__ rather than from_orm")
 
     def to_orm(self):
         d = self.dict(exclude={"schools", "classes"})

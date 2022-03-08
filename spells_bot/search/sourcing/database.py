@@ -118,6 +118,12 @@ class ChatSettingsRecord(Base):
 
 
 def init_db(sqlalchemy_database_url: str, drop: bool = False) -> sessionmaker:
+    """Create sqlalchemy sessionmaker
+
+    :param sqlalchemy_database_url: currently tested only against sqlite
+    :param drop: drop existing and recreate database if True
+    :return:
+    """
     engine = create_engine(sqlalchemy_database_url)
     session_callable = sessionmaker(bind=engine)
 
@@ -130,6 +136,13 @@ def init_db(sqlalchemy_database_url: str, drop: bool = False) -> sessionmaker:
 
 
 class Database:
+    """Implements CRUD operations.
+
+    Private methods are basic reusable functions which must accept ``db: Session`` as their first argument
+
+    Public methods must always instantiate sessions as ``with self._db() as db: ...``
+
+    """
     def __init__(self, settings: DatabaseSettings, drop_on_startup: bool = False):
         self._settings = settings
         self._db = init_db(settings.sqlalchemy_url, drop_on_startup)
@@ -168,6 +181,12 @@ class Database:
     def _iter_classes(
         db: Session, book_filter: list = None
     ) -> Generator[ClassInfo, None, None]:
+        """Yield classes which appear in the ``book_filter`` list
+
+        :param db: sqlalchemy session
+        :param book_filter: list of aliases in camelCase
+        :return:
+        """
         if book_filter:
             classes = (
                 db.query(ClassRecord)
@@ -182,21 +201,44 @@ class Database:
 
     @staticmethod
     def _create_or_update_classes(db: Session, classes: List[ClassInfo]):
+        """Create or update classes in ``class`` table
+
+        :param db: sqlalchemy session
+        :param classes: list of ClassInfo items
+        :return:
+        """
         for c in classes:
             Database._create_or_update_registry_item(db, ClassRecord, c, "id", "id")
 
     @staticmethod
     def _iter_schools(db: Session) -> Generator[SchoolInfo, None, None]:
+        """Yield all SchoolInfo records
+
+        :param db: sqlalchemy session
+        :return:
+        """
         for s in db.query(SchoolRecord).all():
             yield SchoolInfo.from_orm(s)
 
     @staticmethod
     def _create_or_update_schools(db: Session, schools: List[SchoolInfo]):
+        """Create or update schools in ``school`` table
+
+        :param db: sqlalchemy session
+        :param schools: list of SchoolInfo items
+        :return:
+        """
         for s in schools:
             Database._create_or_update_registry_item(db, SchoolRecord, s, "id", "id")
 
     @staticmethod
     def _create_or_update_spells(db: Session, spells: List[ShortSpellInfo]):
+        """Create or update spells in ``short_spell_info`` table
+
+        :param db: sqlalchemy session
+        :param spells: list of ShortSpellInfo items
+        :return:
+        """
         for s in spells:
             Database._create_or_update_registry_item(
                 db, ShortSpellInfoRecord, s, "alias", "alias"
@@ -204,6 +246,16 @@ class Database:
 
     @staticmethod
     def _convert_short_spell_info_rows(db: Session, rows: List[ShortSpellInfoRecord]):
+        """Serialize list of ShortSpellInfoRecord items to list of ShortSpellInfo items.
+
+        Since class and school info are stored in a json column as ids,
+        we need to get corresponding class and school info from database
+        before we can instantiate a ``ShortSpellInfo`` model
+
+        :param db: sqlalchemy session
+        :param rows: list of ShortSpellInfoRecord items
+        :return:
+        """
         id2class = {c.id: c for c in Database._iter_classes(db)}
         id2school = {s.id: s for s in Database._iter_schools(db)}
 
@@ -224,11 +276,34 @@ class Database:
 
     @staticmethod
     def _iter_rulebooks(db: Session) -> Generator[str, None, None]:
+        """Yield rulebook aliases in camelCase
+
+        :param db: sqlalchemy session
+        :return:
+        """
         for book_alias in db.query(ShortSpellInfoRecord.book_alias).distinct():
             yield book_alias[0]
 
     @staticmethod
+    def _default_book_filter(book_alias_list: Iterable[str]):
+        """Custom default book filter which includes only coreRulebook and advancedPlayerGuide
+
+        :param book_alias_list: list of all available book aliases
+        :return:
+        """
+        book_filter = {book: False for book in book_alias_list}
+        book_filter["coreRulebook"] = True
+        book_filter["advancedPlayerGuide"] = True
+        return book_filter
+
+    @staticmethod
     def _get_chat_settings(db: Session, chat_id: int) -> ChatSettingsRecord:
+        """Return chat settings for the given chat_id
+
+        :param db: sqlalchemy session
+        :param chat_id: chat id
+        :return:
+        """
         return (
             db.query(ChatSettingsRecord)
             .filter(ChatSettingsRecord.chat_id == chat_id)
@@ -239,13 +314,16 @@ class Database:
     def _create_chat_settings(
         db: Session, chat_id: int, book_filter: Dict[str, bool] = None
     ) -> ChatSettingsRecord:
-        def _default_book_filter(book_alias_list: Iterable[str]):
-            book_filter = {book: False for book in book_alias_list}
-            book_filter["coreRulebook"] = True
-            book_filter["advancedPlayerGuide"] = True
-            return book_filter
+        """Create chat settings record with the given book filter or a default one
 
-        book_filter = book_filter or _default_book_filter(Database._iter_rulebooks(db))
+        :param db: sqlalchemy session
+        :param chat_id: chat id
+        :param book_filter: dict of aliases and their values, e.g. {"aliasNameOne": True, "aliasNameTwo": False}.
+        If not provided, will create a default alias.
+        :return:
+        """
+
+        book_filter = book_filter or Database._default_book_filter(Database._iter_rulebooks(db))
         chat_settings = ChatSettingsRecord(chat_id=chat_id, book_filter=book_filter)
 
         db.add(chat_settings)
@@ -258,15 +336,30 @@ class Database:
     def _get_or_create_chat_settings(
         db: Session, chat_id: int, book_filter: Dict[str, bool] = None
     ) -> ChatSettingsRecord:
+        """Wrapper over get or create chat settings
+
+        :param db: sqlalchemy session
+        :param chat_id: chat id
+        :param book_filter: used only if _get_chat_settings fails.
+        Dict of aliases and their values, e.g. {"aliasNameOne": True, "aliasNameTwo": False}.
+        If not provided, will create a default alias.
+        :return:
+        """
         chat_settings = Database._get_chat_settings(db, chat_id)
 
         if not chat_settings:
-            chat_settings = Database._create_chat_settings(db, chat_id)
+            chat_settings = Database._create_chat_settings(db, chat_id, book_filter)
 
         return chat_settings
 
     @staticmethod
-    def _get_book_filter(db: Session, chat_id: int = None):
+    def _get_book_filter(db: Session, chat_id: int = None) -> List[str]:
+        """Return list of enabled book aliases in camelCase.
+
+        :param db: sqlalchemy session
+        :param chat_id: chat id. if not provided, will return all available aliases
+        :return:
+        """
         if chat_id:
             chat_settings = Database._get_or_create_chat_settings(db, chat_id)
             include_books = [k for k, v in chat_settings.book_filter.items() if v]
@@ -361,16 +454,31 @@ class Database:
             yield from self._convert_short_spell_info_rows(db, rows)
 
     def get_class(self, class_id: int) -> ClassInfo:
+        """Get class info by id
+
+        :param class_id: class id
+        :return:
+        """
         with self._db() as db:
             c = db.query(ClassRecord).where(ClassRecord.id == class_id).first()
         return ClassInfo.from_orm(c)
 
     def iter_classes(self, chat_id: int):
+        """Yield classes filtering by chat settings
+
+        :param chat_id: chat id
+        :return:
+        """
         with self._db() as db:
             include_books = self._get_book_filter(db, chat_id)
             yield from self._iter_classes(db, include_books)
 
     def iter_levels(self, class_id: int) -> Generator[int, None, None]:
+        """Yield all level numbers which appear in spells for the given class id
+
+        :param class_id: class id
+        :return:
+        """
         class_id_str = str(class_id)
         with self._db() as db:
             rows = (
@@ -396,6 +504,11 @@ class Database:
     def get_full_spell_info(
         self, spell_alias: str
     ) -> Tuple[ShortSpellInfo, Optional[ExtendedSpellInfo]]:
+        """Get all spell info by english alias if it exists
+
+        :param spell_alias: spell name in ascii
+        :return:
+        """
         extended_spell_info = None
 
         with self._db() as db:
@@ -430,6 +543,13 @@ class Database:
         extended_spell_info: ExtendedSpellInfo,
         tables: List[SpellTable],
     ) -> ExtendedSpellInfo:
+        """Create extended spell info record attaching it to its parent short spell info record
+
+        :param spell_alias: spell name in ascii
+        :param extended_spell_info: extended spell info
+        :param tables: discovered or created spell tables
+        :return:
+        """
         tables = [SpellTableRecord(**t.to_orm()) for t in tables]
 
         with self._db() as db:
@@ -451,6 +571,11 @@ class Database:
         return extended_spell_info
 
     def get_or_create_chat_settings(self, chat_id: int) -> ChatSettings:
+        """Return existing chat settings or new ones with the default filter
+
+        :param chat_id: chat id
+        :return: existing or new default ChatSettings
+        """
         with self._db() as db:
             chat_settings = self._get_or_create_chat_settings(db, chat_id)
             chat_settings = ChatSettings.from_orm(chat_settings)
@@ -458,6 +583,12 @@ class Database:
         return chat_settings
 
     def update_book_filter(self, chat_id: int, book_alias: str) -> ChatSettings:
+        """Toggle book filter value for the given alias and return updated chat settings
+
+        :param chat_id: chat id
+        :param book_alias: alias name in camelCase whose value will be toggled
+        :return: updated ChatSettings
+        """
         with self._db() as db:
             chat_settings = self._get_or_create_chat_settings(db, chat_id)
 

@@ -23,6 +23,11 @@ class HctiApi:
         return css
 
     def create_image(self, html: str):
+        """Create image via hcti api from html and pre-configured css
+
+        :param html: raw html
+        :return:
+        """
         data = {
             "html": html,
             "css": self.css,
@@ -46,6 +51,13 @@ class HctiApi:
     def download_image(
         url: str, download_path: Union[Path, str], overwrite: bool = False
     ) -> None:
+        """Download image
+
+        :param url: image url
+        :param download_path: path to file
+        :param overwrite: overwrite existing file if True
+        :return:
+        """
         download_path = Path(download_path)
         if overwrite or not download_path.exists():
             try:
@@ -58,6 +70,12 @@ class HctiApi:
                 logger.error(f"Failed to save {url} to {download_path} because {e}")
 
     def find_or_create(self, html: str, path: Union[Path, str, None]):
+        """Discover image locally or create and download
+
+        :param html: raw html
+        :param path: possible image path
+        :return:
+        """
         url = None
         path = Path(path)
 
