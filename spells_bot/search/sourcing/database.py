@@ -520,6 +520,7 @@ class Database:
 
             if short_spell_info:
                 extended_spell_info = short_spell_info.extended_spell_info
+                short_spell_info = list(self._convert_short_spell_info_rows(db, [short_spell_info]))[0]
 
                 if extended_spell_info:
                     extended_spell_info = ExtendedSpellInfo.from_orm(
