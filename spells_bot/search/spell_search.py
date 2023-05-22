@@ -63,17 +63,20 @@ class SpellSearch:
         short_spell_info, extended_spell_info = self.db.get_full_spell_info(spell_alias)
 
         if not extended_spell_info:
-            extended_spell_info = self.source.update_spell_info(spell_alias)
+            try:
+                extended_spell_info = self.source.update_spell_info(spell_alias)
 
-            updated_tables = []
-            for t_idx, t in enumerate(extended_spell_info.tables):
-                table_image_path = self.spell_tables_dir / spell_alias / f"{t_idx}.png"
-                table = self.hcti.find_or_create(t.html, table_image_path)
-                updated_tables.append(table)
+                updated_tables = []
+                for t_idx, t in enumerate(extended_spell_info.tables):
+                    table_image_path = self.spell_tables_dir / spell_alias / f"{t_idx}.png"
+                    table = self.hcti.find_or_create(t.html, table_image_path)
+                    updated_tables.append(table)
 
-            extended_spell_info = self.db.create_extended_spell_info(
-                spell_alias, extended_spell_info, updated_tables
-            )
+                extended_spell_info = self.db.create_extended_spell_info(
+                    spell_alias, extended_spell_info, updated_tables
+                )
+            except Exception as e:
+                pass
 
         return short_spell_info, extended_spell_info
 

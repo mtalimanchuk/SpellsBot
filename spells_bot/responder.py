@@ -157,13 +157,19 @@ class Responder:
             school = ", ".join(s.name for s in spell.schools)
             description = f"{class_restrictions}\n{spell.short_description}"
 
-            text_parts = [
-                f"<b>{spell_ext.full_name.upper()}</b>",
-                f"{school}\n",
-                "\n".join(f"<b>{k}</b>: {v}" for k, v in spell_ext.variables.items()),
-                f"\n{spell_ext.text}",
-            ]
-            text = "\n".join(text_parts)
+            if spell_ext:
+                text_parts = [
+                    f"<b>{spell_ext.full_name.upper()}</b>",
+                    f"{school}\n",
+                    "\n".join(f"<b>{k}</b>: {v}" for k, v in spell_ext.variables.items()),
+                    f"\n{spell_ext.text}",
+                ]
+                text = "\n".join(text_parts)
+            else:
+                text = (
+                    f"<b>{title.upper()}</b>\n\n"
+                    "Невозможно загрузить данные с сайта, смотрите описание заклинания по ссылке"
+                )
 
             if len(text) >= MAX_MESSAGE_LENGTH:
                 text_ending = " <i>... продолжение по ссылке</i>"
@@ -178,18 +184,24 @@ class Responder:
                 )
             )
             try:
-                n_tables = len(spell_ext.tables)
-                if n_tables > 0:
-                    buttons.append(
-                        InlineKeyboardButton(
-                            f"📜 Показать таблицы ({n_tables})",
-                            callback_data=self.encode_callback("TABLE", spell.alias),
+                if spell_ext:
+                    n_tables = len(spell_ext.tables)
+                    if n_tables > 0:
+                        buttons.append(
+                            InlineKeyboardButton(
+                                f"📜 Показать таблицы ({n_tables})",
+                                callback_data=self.encode_callback("TABLE", spell.alias),
+                            )
                         )
-                    )
             except json.decoder.JSONDecodeError:
                 pass
 
-            en_school_name = _school_ru2en(spell_ext.school)
+            if spell_ext:
+                en_school_name = _school_ru2en(spell_ext.school)
+                thumb_url = self._school_icon_url(en_school_name)
+            else:
+                thumb_url = None
+
             a = InlineQueryResultArticle(
                 id=str(uuid4()),
                 title=title,
@@ -198,7 +210,7 @@ class Responder:
                     text, parse_mode=ParseMode.HTML
                 ),
                 reply_markup=InlineKeyboardMarkup.from_column(buttons),
-                thumb_url=self._school_icon_url(en_school_name),
+                thumb_url=thumb_url,
             )
             articles.append(a)
 
