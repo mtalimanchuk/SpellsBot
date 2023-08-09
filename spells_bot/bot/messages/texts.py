@@ -1,9 +1,12 @@
+import warnings
 from typing import Sequence
 
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, MarkupResemblesLocatorWarning
 
 from spells_bot.config import settings
 from spells_bot.pathfinder_api.schemas import BotClassInfo, BotSpellInfo
+
+warnings.filterwarnings("ignore", category=MarkupResemblesLocatorWarning)
 
 
 def _validate_message_len(msg: str):
