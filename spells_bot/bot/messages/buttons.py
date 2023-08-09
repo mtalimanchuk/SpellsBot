@@ -14,7 +14,7 @@ from spells_bot.bot.callback_schema import (
     ClassesSpellsCallback,
     MenuClassCallback,
 )
-from spells_bot.bot.config import settings
+from spells_bot.config import settings
 
 EMPTY_BUTTON_TEXT = "⠀"
 

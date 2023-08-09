@@ -6,7 +6,7 @@ from aiogram.types import (
     InputTextMessageContent,
 )
 
-from spells_bot.bot.config import settings
+from spells_bot.config import settings
 from spells_bot.bot.messages import texts
 from spells_bot.bot.messages import keyboards
 from spells_bot.pathfinder_api.schemas import BotSpellInfo, BotClassInfo, BotBook, SchoolForList

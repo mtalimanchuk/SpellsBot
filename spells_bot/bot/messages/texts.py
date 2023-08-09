@@ -2,7 +2,7 @@ from typing import Sequence
 
 from bs4 import BeautifulSoup
 
-from spells_bot.bot.config import settings
+from spells_bot.config import settings
 from spells_bot.pathfinder_api.schemas import BotClassInfo, BotSpellInfo
 
 

@@ -12,7 +12,7 @@ from aiogram.types import (
 )
 from sqlalchemy.exc import IntegrityError
 
-from spells_bot.bot import utils
+from spells_bot.utils import text_parser
 from spells_bot.bot.callback_schema import (
     BaseClassesCallback,
     SpellbookReadCallback,
@@ -27,7 +27,7 @@ from spells_bot.bot.callback_schema import (
     ClassesSpellsCallback,
     SpellTablesCallback,
 )
-from spells_bot.bot.config import settings
+from spells_bot.config import settings
 from spells_bot.bot.messages import views, texts
 from spells_bot.bot.messages import keyboards
 from spells_bot.database.models import (
@@ -156,7 +156,7 @@ async def inline_search(inline_query: types.InlineQuery):
         user_rulebooks = chat_settings.book_filter
 
     try:
-        ru_name, en_name = utils.clean_spell_search_query(inline_query.query)
+        ru_name, en_name = text_parser.clean_spell_search_query(inline_query.query)
     except ValueError as e:
         logging.info(f"Ignored query {inline_query.query} ({e})")
         spells = []

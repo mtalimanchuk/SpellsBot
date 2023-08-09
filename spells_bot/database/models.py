@@ -14,8 +14,8 @@ from sqlalchemy.dialects.sqlite import JSON
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship, Session
 
-from spells_bot.bot.config import settings
-from spells_bot.bot.utils import create_logger
+from spells_bot.config import settings
+from spells_bot.utils.logger import create_logger
 
 logger = create_logger("database")
 

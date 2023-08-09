@@ -4,7 +4,7 @@ from typing import Sequence
 
 import aiohttp
 
-from spells_bot.bot.config import settings
+from spells_bot.config import settings
 from spells_bot.pathfinder_api import schemas
 
 
