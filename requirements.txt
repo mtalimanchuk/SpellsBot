@@ -1,4 +1,10 @@
-pydantic[dotenv]==1.9.0
-python-telegram-bot==13.4.1
-SQLAlchemy==1.4.31
-requests-html==0.10.0
+git+https://github.com/aiogram/aiogram@v3.0.0rc1
+pydantic==2.1.1
+pydantic-settings==2.0.1
+SQLAlchemy==2.0.18
+aiohttp==3.8.5
+beautifulsoup4==4.12.2
+cachetools==5.3.1
+types-cachetools==5.3.0.5
+html2image==2.0.3
+certifi==2023.7.22

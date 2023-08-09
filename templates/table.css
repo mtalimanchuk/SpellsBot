@@ -1,11 +1,21 @@
 html {
+  /*background-image: url("/home/mtalimanchuk/projects/SpellsBot/bot/data_v3/bg.jpg");*/
   background-image: url("https://www.myfreetextures.com/wp-content/uploads/2014/11/floral-old-paper-or-parchment-900x702.jpg");
   background-repeat: no-repeat;
   -webkit-background-size: cover;
   -moz-background-size: cover;
   -o-background-size: cover;
   background-size: cover;
-  device-scale: 1;
+  /*device-scale: 1;*/
+}
+
+.tableBlock {
+  width: 100%;
+}
+
+.tableHeader {
+  font: italic small-caps bold 1.1rem/2 cursive;
+  font-weight: bolder;
 }
 
 .commonTable {
@@ -13,7 +23,7 @@ html {
   border-style: hidden;
   color: rgb(10, 10, 10);
   text-shadow: rgb(255, 255, 255) 1px 0 10px;
-  font: italic small-caps bold 3rem/2 cursive;
+  font: italic small-caps bold 1.1rem/2 cursive;
   font-weight: bolder;
   padding: 4px;
   margin: 2%;
@@ -22,11 +32,13 @@ html {
 .commonTable thead td {
   border-bottom: 3px solid #000000;
 }
+
 table td {
   border-left: 1px solid rgba(0,0,0,0.2);
   border-right: 1px solid rgba(0,0,0,0.2);
   border-top: 1px solid rgba(0,0,0,0.2);
 }
+
 table td{ /* Added padding for better layout after collapsing */
   padding: 4px 8px;
 }
