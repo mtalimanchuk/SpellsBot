@@ -45,7 +45,11 @@ from spells_bot.image_generator import HtmlToImage
 from spells_bot.pathfinder_api import api
 
 router = Router()
-
+logging.basicConfig(
+    format="%(asctime)s %(levelname)s:%(name)s:%(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+    level=logging.INFO,
+)
 
 api_client = api.HttpClient()
 
