@@ -1,0 +1,1 @@
+from spells_bot.image_generator.html_to_image import HtmlToImage
